@@ -1,54 +1,48 @@
-
-name: build-mesa
+name: Build and Install Virglrenderer, Mesa, and Viogpu3d
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
-    runs-on: windows-2022
+  build_and_install:
+    runs-on: windows-latest
+
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-      - name: checkout
-        uses: actions/checkout@v2          
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
 
-      - name: build
-        id: build
-        shell: cmd
-        run: call build.cmd
+    - name: Acquire and build Virglrenderer
+      run: |
+        git clone  https://gitlab.freedesktop.org/max8rr8/virglrenderer && cd virglrenderer
+        mkdir install
+        meson --prefix=$(pwd)/install build
+        ninja -C build install
+        export LD_LIBRARY_PATH=$(pwd)/install
 
-      - name: release
-        id: release
-        if: steps.build.outputs.MESA_VERSION != ''
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.build.outputs.MESA_VERSION }}
-          release_name: ${{ steps.build.outputs.MESA_VERSION }}
-          body: |
-            [mesa ${{ steps.build.outputs.MESA_VERSION }} release notes](https://docs.mesa3d.org/relnotes/${{ steps.build.outputs.MESA_VERSION }}.html)
-            [llvm ${{ steps.build.outputs.LLVM_VERSION }} release notes](https://github.com/llvm/llvm-project/releases/tag/llvmorg-${{ steps.build.outputs.LLVM_VERSION }})
+    - name: Acquire and build Mesa
+      run: |
+        git clone --depth 10 --branch viogpu_win https://gitlab.freedesktop.org/max8rr8/mesa && cd mesa
+        mkdir build && cd build
+        $env:MESA_PREFIX="$PWD\mesa_prefix"
+        meson .. --prefix=$env:MESA_PREFIX -Dgallium-drivers=virgl -Dgallium-d3d10umd=true -Dgallium-wgl-dll-name=viogpu_wgl -Dgallium-d3d10-dll-name=viogpu_d3d10 -Db_vscrt=mt
+        ninja install
 
-      - name: upload d3d12
-        id: upload-d3d12
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: "mesa-d3d12-${{ steps.build.outputs.MESA_VERSION }}.zip"
-          asset_name: "mesa-d3d12-${{ steps.build.outputs.MESA_VERSION }}.zip"
-          asset_content_type: application/zip
-      - name: upload viogpu3d
-        id: upload-zink
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: "mesa-viogpu3d.zip"
-          asset_content_type: application/zip
-
+    - name: Acquire and build Viogpu3d
+      run: |
+        git clone --branch viogpu3d https://github.com/max8rr8/kvm-guest-drivers-windows && cd kvm-guest-drivers-windows
+        cd viogpu
+        # Optional: Setup test code signing from Visual Studio
+        .\build_AllNoSdv.bat
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-coverage-report
+        path: kvm-guest-drivers-windows\viogpu\viogpu3d\objfre_win10_amd64\amd64\viogpu3d.exe
