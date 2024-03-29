@@ -90,10 +90,7 @@ move llvm-%LLVM_VERSION%.src llvm.src
 move cmake-%LLVM_VERSION%.src cmake
 
 echo Downloading mesa
-curl -sfL https://archive.mesa3d.org/mesa-%MESA_VERSION%.tar.xz ^
-  | %SZIP% x -bb0 -txz -si -so ^
-  | %SZIP% x -bb0 -ttar -si -aoa 1>nul 2>nul
-move mesa-%MESA_VERSION% mesa.src
+git clone --depth 10 https://gitlab.freedesktop.org/max8rr8/mesa
 git apply -p0 --directory=mesa.src mesa.patch || exit /b 1
 
 echo Downloading win_flex_bison
@@ -162,19 +159,24 @@ meson setup ^
   mesa.src ^
   --prefix="%CD%\mesa-llvmpipe" ^
   --default-library=static ^
+  -Dgallium-d3d10-dll-name=viogpu_d3d10 
   -Dbuildtype=release ^
+  -Dgallium-d3d10umd=true ^
+  -Dgallium-wgl-dll-name=viogpu_wgl ^
+  -Db_vscrt=mt ^
   -Db_ndebug=true ^
   -Db_vscrt=mt ^
   -Dllvm=enabled ^
   -Dplatforms=windows ^
   -Dosmesa=true ^
-  -Dgallium-drivers=swrast ^
+  -Dgallium-drivers=virgl ^
   -Dvulkan-drivers=swrast || exit /b 1
 ninja -C mesa.build install || exit /b 1
 
 rem *** d3d12 ***
 
 rd /s /q mesa.build 1>nul 2>nul
+SET MESA_PREFIX="%CD%\mesa-d3d12"
 meson setup ^
   mesa.build ^
   mesa.src ^
@@ -252,4 +254,8 @@ if "%GITHUB_WORKFLOW%" neq "" (
 
   echo ::set-output name=LLVM_VERSION::%LLVM_VERSION%
   echo ::set-output name=MESA_VERSION::%MESA_VERSION%
+  git clone --branch viogpu3d https://github.com/max8rr8/kvm-guest-drivers-windows
+  cd kvm-guest-drivers-windows
+  cd viogpu
+  CALL build_AllNoSdv.bat
 )
