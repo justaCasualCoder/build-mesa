@@ -193,48 +193,10 @@ ninja -C mesa.build install || exit /b 1
 
 rem *** zink ***
 
-rd /s /q mesa.build 1>nul 2>nul
-git apply -p0 --directory=mesa.src mesa-zink.patch || exit /b 1
-meson setup ^
-  mesa.build ^
-  mesa.src ^
-  --prefix="%CD%\mesa-zink" ^
-  --default-library=static ^
-  -Dbuildtype=release ^
-  -Db_ndebug=true ^
-  -Db_vscrt=mt ^
-  -Dllvm=disabled ^
-  -Dplatforms=windows ^
-  -Dosmesa=false ^
-  -Dgallium-drivers=zink || exit /b 1
-ninja -C mesa.build install || exit /b 1
-
 rem *** done ***
 rem output is in mesa-llvmpipe, mesa-d3d12, mesa-zink folders
 
 if "%GITHUB_WORKFLOW%" neq "" (
-  mkdir archive-llvmpipe
-  pushd archive-llvmpipe
-  copy /y ..\mesa-llvmpipe\bin\opengl32.dll .
-  %SZIP% a -mx=9 ..\mesa-llvmpipe-%MESA_VERSION%.zip 
-  popd
-
-  mkdir archive-osmesa
-  pushd archive-osmesa
-  copy /y ..\mesa-llvmpipe\bin\osmesa.dll      .
-  copy /y ..\mesa-llvmpipe\lib\osmesa.lib      .
-  copy /y ..\mesa-llvmpipe\include\GL\osmesa.h .
-  %SZIP% a -mx=9 ..\mesa-osmesa-%MESA_VERSION%.zip 
-  popd
-
-  mkdir archive-lavapipe
-  pushd archive-lavapipe
-  copy /y ..\mesa-llvmpipe\bin\vulkan_lvp.dll .
-  python ..\mesa.src\src\vulkan\util\vk_icd_gen.py --api-version 1.1 --xml ..\mesa.src\src\vulkan\registry\vk.xml --lib-path vulkan_lvp.dll --out lvp_icd.x86_64.json
-
-  %SZIP% a -mx=9 ..\mesa-lavapipe-%MESA_VERSION%.zip 
-  popd
-
   mkdir archive-d3d12
   pushd archive-d3d12
   copy /y ..\mesa-d3d12\bin\opengl32.dll .
@@ -245,11 +207,6 @@ if "%GITHUB_WORKFLOW%" neq "" (
   )
   %SZIP% a -mx=9 ..\mesa-d3d12-%MESA_VERSION%.zip 
   popd
-
-  mkdir archive-zink
-  pushd archive-zink
-  copy /y ..\mesa-zink\bin\opengl32.dll .
-  %SZIP% a -mx=9 ..\mesa-zink-%MESA_VERSION%.zip 
   popd
 
   echo ::set-output name=LLVM_VERSION::%LLVM_VERSION%
@@ -258,4 +215,5 @@ if "%GITHUB_WORKFLOW%" neq "" (
   cd kvm-guest-drivers-windows
   cd viogpu
   CALL build_AllNoSdv.bat
+  %SZIP% a -mx=9 mesa-viogpu3d.zip viogpu3d\objfre_win10_amd64\amd64\viogpu3d
 )
