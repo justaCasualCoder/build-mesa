@@ -15,10 +15,86 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+    - name: Check Python and pip
+      run: |
+        where /q python.exe || (
+          echo ERROR: "python.exe" not found
+          exit /b 1
+        )
+        where /q pip.exe || (
+          echo ERROR: "pip.exe" not found
+          exit /b 1
+        )
 
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
+    - name: Install Meson if not found
+      run: |
+        where /q meson.exe || (
+          pip install meson
+          where /q meson.exe || (
+            echo ERROR: "meson.exe" not found
+            exit /b 1
+          )
+        )
 
+    - name: Check for Mako Python module
+      run: |
+        python -c "import mako" 2>nul || (
+          pip install mako
+          python -c "import mako" 2>nul || (
+            echo ERROR: "mako" module not found for Python
+            exit /b 1
+          )
+        )
+
+    - name: Check for Git and Curl
+      run: |
+        where /q git.exe || (
+          echo ERROR: "git.exe" not found
+          exit /b 1
+        )
+        where /q curl.exe || (
+          echo ERROR: "curl.exe" not found
+          exit /b 1
+        )
+
+    - name: Check for 7-Zip or 7za
+      run: |
+        if exist "%ProgramFiles%\7-Zip\7z.exe" (
+          set SZIP="%ProgramFiles%\7-Zip\7z.exe"
+        ) else (
+          where /q 7za.exe || (
+            echo ERROR: 7-Zip installation or "7za.exe" not found
+            exit /b 1
+          )
+          set SZIP=7za.exe
+        )
+
+    - name: Check for CMake
+      run: |
+        where /q cmake.exe || (
+          echo ERROR: "cmake.exe" not found
+          exit /b 1
+        )
+
+    - name: Install Ninja if not found
+      run: |
+        where /q ninja.exe || (
+          curl -Lsf -o ninja-win.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip || exit /b 1
+          %SZIP% x -bb0 -y ninja-win.zip > nul 2>&1 || exit /b 1
+          del ninja-win.zip > nul 2>&1
+        )
+
+    - name: Setup Visual Studio environment
+      run: |
+        where /Q cl.exe || (
+          set __VSCMD_ARG_NO_LOGO=1
+          for /f "tokens=*" %%i in ('"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath') do set VS=%%i
+          if "!VS!" equ "" (
+            echo ERROR: Visual Studio installation not found
+            exit /b 1
+          )  
+          call "!VS!\VC\Auxiliary\Build\vcvarsall.bat" amd64 || exit /b 1
+        )
     - name: Acquire and build Virglrenderer
       run: |
         git clone  https://gitlab.freedesktop.org/max8rr8/virglrenderer && cd virglrenderer
