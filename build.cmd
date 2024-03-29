@@ -90,7 +90,7 @@ move llvm-%LLVM_VERSION%.src llvm.src
 move cmake-%LLVM_VERSION%.src cmake
 
 echo Downloading mesa
-git clone --depth 10 https://gitlab.freedesktop.org/max8rr8/mesa
+git clone --depth 10 https://gitlab.freedesktop.org/max8rr8/mesa mesa.src
 git apply -p0 --directory=mesa.src mesa.patch || exit /b 1
 
 echo Downloading win_flex_bison
